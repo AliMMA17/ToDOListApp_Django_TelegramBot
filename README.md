@@ -4,7 +4,8 @@ system_overview_document.pdf : system architecure overview + userflow model + us
 
 
 instructions to run (in docker):
-Configure .env file in my_todo_bot
+create and Configure .env file in my_todo_bot for "BOT_TOKEN" and "API_URL" (because we used  gitignore)
+
 docker-compose up --build
 
 instructions to run without Docker:
