@@ -1,0 +1,28 @@
+version: "3.8"
+services:
+  todo_backend:
+    build:
+      context: ./todo_backend  
+    container_name: todo-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_PASSWORD=zxcvbnm10
+    networks:
+      - todo_network
+
+  my_todo_bot:
+    build:
+      context: ./my_todo_bot  
+    container_name: my_todo_bot
+    depends_on:
+      - todo_backend  
+    env_file:
+      - ./my_todo_bot/.env  # Load environment variables from .env file
+    networks:
+      - todo_network
+
+networks:
+  todo_network:
+    driver: bridge
