@@ -12,4 +12,5 @@ telegram bot : my_todo_bot -> python main.py
 Django : todo_backend -> 1 - python manage.py migrate  2 - python manage.py runserver
 
 instructions to Generate Random data using JsonPlaceholder :
+(code location :todo_backend/tasks/management/commands/generate_random_tasks.py)
 python manage.py generate_random_tasks --count 5
