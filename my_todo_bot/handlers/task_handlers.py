@@ -101,6 +101,10 @@ async def view_tasks_callback(callback: CallbackQuery):
                 datetime.fromisoformat(task['due_date']).strftime("%B %d, %Y at %H:%M")
                 if task.get('due_date') else "No due date"
             )
+            task_created_at = (
+                datetime.fromisoformat(task['created_at']).strftime("%B %d, %Y at %H:%M")
+                if task.get('created_at') else "Unknown creation date"
+            )
             task_category = task['category']
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -109,7 +113,7 @@ async def view_tasks_callback(callback: CallbackQuery):
                 ]
             )
             await callback.message.answer(
-                f"ID: {task_id}\nTitle: {task_title}\n Description: {task_description}\n Due Date: {task_due_date}\nCategory: {task_category}",
+                f"ID: {task_id}\nCreated At: {task_created_at}\n Title: {task_title}\n  Description: {task_description}\n Due Date: {task_due_date}\nCategory: {task_category}",
                 reply_markup=keyboard
             )
     else:
@@ -374,6 +378,7 @@ async def process_view_categories(callback: CallbackQuery) -> None:
         "4. Clear All Tasks",
         reply_markup=keyboard
     )
+    await callback.answer()
 
 
 @dp.callback_query(lambda c: c.data == "view_completed_tasks")
