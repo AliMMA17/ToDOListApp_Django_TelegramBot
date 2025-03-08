@@ -7,13 +7,20 @@ from loader import dp  # import the central dispatcher
 async def command_start_handler(message: Message) -> None:
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Add a Task", callback_data="add_task")],
-            [InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")],
-            [InlineKeyboardButton(text="View Categories", callback_data="view_categories")],
-            [InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks")],
-            [InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")],
+            [
+                InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
+            ],
+            [
+                InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
+                InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
+            ]
         ]
     )
+    
     await message.answer(
         "Main Menu Options:\n\n"
         "Choose one of the following actions:\n"
@@ -24,3 +31,5 @@ async def command_start_handler(message: Message) -> None:
         "5. Clear All Tasks",
         reply_markup=keyboard
     )
+
+

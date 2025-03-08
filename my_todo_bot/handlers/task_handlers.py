@@ -79,9 +79,17 @@ async def process_category(message: Message, state: FSMContext):
     # Return to main menu
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Add a Task", callback_data="add_task")],
-            [InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")],
-            [InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")],
+            [
+                InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
+            ],
+            [
+                InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
+                InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
+            ]
         ]
     )
     await message.answer("Back to main menu:", reply_markup=keyboard)
@@ -113,22 +121,82 @@ async def view_tasks_callback(callback: CallbackQuery):
                 ]
             )
             await callback.message.answer(
-                f"ID: {task_id}\nCreated At: {task_created_at}\n Title: {task_title}\n  Description: {task_description}\n Due Date: {task_due_date}\nCategory: {task_category}",
+                f"ID: {task_id}\nCreated At: {task_created_at}\nTitle: {task_title}\nDescription: {task_description}\nDue Date: {task_due_date}\nCategory: {task_category}",
                 reply_markup=keyboard
             )
+            
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
+                    InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
+                ],
+                [
+                    InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                    InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+                ],
+                [
+                    InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
+                ]
+            ]
+        )
+        await callback.message.answer(
+            "Main Menu Options:\n\n"
+            "Choose one of the following actions:\n"
+            "1. Add a Task\n"
+            "2. View Tasks\n"
+            "3. View Categories\n"
+            "4. View Completed Tasks\n"
+            "5. Clear All Tasks",
+            reply_markup=keyboard
+        )
     else:
         await callback.message.edit_text("You have no tasks at the moment!")
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
+                    InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
+                ],
+                [
+                    InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                    InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+                ],
+                [
+                    InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
+                ]
+            ]
+        )
+        await callback.message.answer(
+            "Main Menu Options:\n\n"
+            "Choose one of the following actions:\n"
+            "1. Add a Task\n"
+            "2. View Tasks\n"
+            "3. View Categories\n"
+            "4. View Completed Tasks\n"
+            "5. Clear All Tasks",
+            reply_markup=keyboard
+        )
 
 @dp.callback_query(lambda c: c.data.startswith("update_"))
 async def update_task_callback(callback: CallbackQuery):
     task_id = callback.data.split("_")[1]
-    user_id = callback.from_user.id  # Get user_id from callback
+    user_id = callback.from_user.id
 
     # Fetch task for the specific user
     task = await fetch_task_by_id(user_id, task_id)
 
-    # Save task ID for editing.
-    editing_task[callback.from_user.id] = task_id
+    # Store the original message text and task ID
+    original_text = (
+        f"ID: {task['id']}\nCreated At: {datetime.fromisoformat(task['created_at']).strftime('%B %d, %Y at %H:%M')}\n"
+        f"Title: {task['title']}\nDescription: {task['description'] if task.get('description') else 'No description'}\n"
+        f"Due Date: {datetime.fromisoformat(task['due_date']).strftime('%B %d, %Y at %H:%M') if task.get('due_date') else 'No due date'}\n"
+        f"Category: {task['category']}"
+    )
+    editing_task[user_id] = {
+        'task_id': task_id,
+        'original_message': original_text  # Store the original text here
+    }
 
     await callback.answer()
     await callback.message.edit_text(
@@ -146,13 +214,14 @@ async def update_task_callback(callback: CallbackQuery):
             ]
         )
     )
+
 @dp.callback_query(lambda c: c.data.startswith("edit_"))
 async def edit_task_field_callback(callback: CallbackQuery):
     parts = callback.data.split("_")
     field = parts[1]
     task_id = parts[2]
 
-    user_id = callback.from_user.id  # Get user_id from callback
+    user_id = callback.from_user.id
 
     # Fetch current task details for the user
     task = await fetch_task_by_id(user_id, task_id)
@@ -160,18 +229,21 @@ async def edit_task_field_callback(callback: CallbackQuery):
     if field == "title":
         await callback.message.answer("Please send the new title for the task:")
     elif field == "due":
-        await callback.message.answer("Please send the new due date ,format: YYYY-MM-DD HH:MM:")
+        await callback.message.answer("Please send the new due date, format: YYYY-MM-DD HH:MM:")
     elif field == "category":
         await callback.message.answer("Please send the new category:")
 
-    # Save which field is being updated for this user.
-    editing_task[callback.from_user.id] = {"task_id": task_id, "field": field}
+    # Update editing_task with the field being edited, keeping original_message
+    editing_task[user_id] = {
+        "task_id": task_id,
+        "field": field,
+        "original_message": editing_task[user_id]['original_message']  # Preserve original message
+    }
     await callback.answer()
-
 
 @dp.message(lambda message: message.from_user.id in editing_task and isinstance(editing_task[message.from_user.id], dict))
 async def handle_task_update(message: Message):
-    user_id = message.from_user.id  # Get user_id from the message
+    user_id = message.from_user.id
     task_info = editing_task[user_id]
     task_id = task_info['task_id']
     field = task_info['field']
@@ -183,7 +255,7 @@ async def handle_task_update(message: Message):
         try:
             due_date = datetime.strptime(new_value, "%Y-%m-%d %H:%M")
             iso_due_date = due_date.strftime("%Y-%m-%dT%H:%M:00Z")
-            await update_task_field(user_id, task_id, "due", iso_due_date)  # Use "due" as field
+            await update_task_field(user_id, task_id, "due", iso_due_date)
             await message.answer(f"The due date of the task has been updated to: {iso_due_date}")
         except ValueError:
             await message.answer("Invalid date format! Please use the format: YYYY-MM-DD HH:MM (e.g., 2025-03-05 17:00)")
@@ -197,10 +269,13 @@ async def handle_task_update(message: Message):
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
-                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
             ],
             [
-                InlineKeyboardButton(text="Delete a Task", callback_data="delete_task"),
+                InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
                 InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
             ]
         ]
@@ -217,12 +292,21 @@ async def handle_task_update(message: Message):
 
 @dp.callback_query(lambda c: c.data.startswith("cancel_update_"))
 async def cancel_update_callback(callback: CallbackQuery):
-    user_id = callback.from_user.id  # Get user_id from callback
+    user_id = callback.from_user.id
     if user_id in editing_task:
+        # Restore the original message text
+        original_text = editing_task[user_id].get('original_message', "Task update was canceled.")  # Fallback if not found
+        await callback.message.edit_text(
+            original_text,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="Delete", callback_data=f"delete_{editing_task[user_id]['task_id']}")],
+                    [InlineKeyboardButton(text="Update", callback_data=f"update_{editing_task[user_id]['task_id']}")]
+                ]
+            )
+        )
         del editing_task[user_id]
     await callback.answer("Update process canceled.")
-    await callback.message.edit_text("Task update was canceled.")
-
 @dp.callback_query(lambda c: c.data.startswith("delete_"))
 async def delete_specific_task_callback(callback: CallbackQuery):
     task_id = callback.data.split("_")[1]  # Extract task_id from callback data
@@ -243,10 +327,13 @@ async def delete_specific_task_callback(callback: CallbackQuery):
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
-                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
             ],
             [
-                InlineKeyboardButton(text="Delete a Task", callback_data="delete_task"),
+                InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
                 InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
             ]
         ]
@@ -325,10 +412,13 @@ async def cancel_clear_callback(callback: CallbackQuery):
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
-                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
             ],
             [
-                InlineKeyboardButton(text="Delete a Task", callback_data="delete_task"),
+                InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
                 InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
             ]
         ]
@@ -361,10 +451,13 @@ async def process_view_categories(callback: CallbackQuery) -> None:
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
-                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
             ],
             [
                 InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
+                InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
                 InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
             ]
         ]
@@ -375,7 +468,8 @@ async def process_view_categories(callback: CallbackQuery) -> None:
         "1. Add a Task\n"
         "2. View Tasks\n"
         "3. View Categories\n"
-        "4. Clear All Tasks",
+        "4. View Completed Tasks\n"
+        "5. Clear All Tasks",
         reply_markup=keyboard
     )
     await callback.answer()
@@ -390,11 +484,13 @@ async def process_view_completed_tasks(callback: CallbackQuery) -> None:
         inline_keyboard=[
             [
                 InlineKeyboardButton(text="Add a Task", callback_data="add_task"),
-                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks")
+                InlineKeyboardButton(text="View Tasks", callback_data="view_tasks"),
             ],
             [
                 InlineKeyboardButton(text="View Categories", callback_data="view_categories"),
                 InlineKeyboardButton(text="View Completed Tasks", callback_data="view_completed_tasks"),
+            ],
+            [
                 InlineKeyboardButton(text="Clear All Tasks", callback_data="clear_tasks")
             ]
         ]
