@@ -6,7 +6,18 @@ from rest_framework.decorators import api_view
 from django.contrib.auth.models import User  # Add this import
 from .models import Task
 from .serializers import TaskSerializer
+
+
+from rest_framework.decorators import throttle_classes
+from rest_framework.throttling import UserRateThrottle
+
+class CustomTaskThrottle(UserRateThrottle):
+    rate = '15/minute'
+
+
+
 @api_view(['POST'])
+@throttle_classes([CustomTaskThrottle])
 def create_task(request):
     data = request.data
 
@@ -26,6 +37,7 @@ def create_task(request):
 
 
 @api_view(['GET', 'DELETE', 'PUT'])
+@throttle_classes([CustomTaskThrottle])
 def task_crud(request, telegram_user_id, task_id):
     """
     GET: Retrieve task by ID and Telegram user ID.
@@ -56,6 +68,7 @@ def task_crud(request, telegram_user_id, task_id):
         return Response(serializer.errors, status=404)
 
 @api_view(['GET'])
+@throttle_classes([CustomTaskThrottle])
 def get_All_tasks_by_user(request, telegram_user_id):
     tasks = Task.objects.filter(telegram_user_id=telegram_user_id)
     
@@ -68,6 +81,7 @@ def get_All_tasks_by_user(request, telegram_user_id):
 
 
 @api_view(['POST'])
+@throttle_classes([CustomTaskThrottle])
 def search_tasks_by_category(request):
     telegram_user_id = request.data.get('telegram_user_id')
     category = request.data.get('category')
@@ -87,6 +101,7 @@ def search_tasks_by_category(request):
 
 
 @api_view(['DELETE'])
+@throttle_classes([CustomTaskThrottle])
 def delete_all_tasks_by_user(request, telegram_user_id):
     tasks = Task.objects.filter(telegram_user_id=telegram_user_id)
 
@@ -100,6 +115,7 @@ def delete_all_tasks_by_user(request, telegram_user_id):
 
 
 @api_view(['GET'])
+@throttle_classes([CustomTaskThrottle])
 def get_completed_tasks_by_user(request, telegram_user_id):
     tasks = Task.objects.filter(telegram_user_id=telegram_user_id, completed=True)
     if not tasks.exists():
@@ -110,6 +126,7 @@ def get_completed_tasks_by_user(request, telegram_user_id):
 
 
 @api_view(['GET'])
+@throttle_classes([CustomTaskThrottle])
 def get_incomplete_tasks_by_user(request, telegram_user_id):
     tasks = Task.objects.filter(telegram_user_id=telegram_user_id, completed=False)
     if not tasks.exists():
@@ -120,6 +137,7 @@ def get_incomplete_tasks_by_user(request, telegram_user_id):
 
 
 @api_view(['GET'])
+@throttle_classes([CustomTaskThrottle])
 def get_categories_by_user(request, telegram_user_id):
     categories = Task.objects.filter(telegram_user_id=telegram_user_id)\
                              .exclude(category__isnull=True)\
